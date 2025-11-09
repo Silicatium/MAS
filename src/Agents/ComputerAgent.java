@@ -46,18 +46,18 @@ public class ComputerAgent extends Agent {
         addBehaviour(new RequestBehaviour());
         addBehaviour(new AcceptBehaviour());
 
-        System.out.println("ComputerAgent "+ computerName +" is ready.");
+        System.out.println("ComputerAgent " + computerName + " is ready.");
     }
 
     protected void takeDown() {
         // Task returns
         ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
         msg.setOntology("TerminateOntology");
-        msg.setContent(computerName);
+        msg.setContent("I am completing my process");
         for (AID myTask : myTasks) msg.addReceiver(myTask);
         send(msg);
         busyTime = 0;
-        System.out.println("ComputerAgent "+getAID().getName()+" is terminated.");
+        System.out.println("ComputerAgent " + computerName + " is terminated.");
     }
 
     private class RequestBehaviour extends CyclicBehaviour {
@@ -82,6 +82,22 @@ public class ComputerAgent extends Agent {
                 AID taskAID = msg.getSender();
                 myTasks.add(taskAID);
                 busyTime += Double.parseDouble(msg.getContent()) / capacity;
+                System.out.println("ComputerAgent " + computerName + " took the task" + taskAID + ".");
+            }
+            else block();
+        }
+    }
+
+    private class TaskLeaveBehaviour extends CyclicBehaviour {
+        // Task is terminated
+        public void action() {
+            MessageTemplate mt = MessageTemplate.and(MessageTemplate.MatchPerformative(ACLMessage.INFORM),
+                    MessageTemplate.MatchOntology("TerminateOntology"));
+            ACLMessage msg = receive(mt);
+            if (msg != null) {
+                busyTime -= Double.parseDouble(msg.getContent());
+                myTasks.remove(msg.getSender());
+                System.out.println("TaskAgent " + msg.getSender() + " was removed from my list.");
             }
             else block();
         }
