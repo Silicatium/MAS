@@ -16,7 +16,7 @@ import java.util.List;
 public class ComputerAgent extends Agent {
     // Define variables
     private String computerName;
-    private int capacity;
+    private int capacity; // op/sec
     private double busyTime = 0;
     List<AID> myTasks = new ArrayList<>();
 
@@ -24,12 +24,9 @@ public class ComputerAgent extends Agent {
         // Filling variables
         computerName = getAID().getName();
         Object[] args = getArguments();
-        if (args != null && args.length > 0) {
+        if (args != null && args.length > 0)
             capacity = Integer.parseInt((String) args[0]);
-        }
-        else {
-            capacity = 1000;
-        }
+        else capacity = 1000;
 
         // Register in yellow pages
         DFAgentDescription dfd = new DFAgentDescription();
@@ -66,8 +63,7 @@ public class ComputerAgent extends Agent {
     private class RequestBehaviour extends CyclicBehaviour {
         // Sending information to complete tasks
         public void action() {
-            MessageTemplate mt = MessageTemplate.MatchPerformative(ACLMessage.CFP);
-            ACLMessage cfp = myAgent.receive(mt);
+            ACLMessage cfp = receive(MessageTemplate.MatchPerformative(ACLMessage.CFP));
             if (cfp != null) {
                 ACLMessage propose = cfp.createReply();
                 propose.setPerformative(ACLMessage.PROPOSE);
@@ -81,8 +77,7 @@ public class ComputerAgent extends Agent {
     private class AcceptBehaviour extends CyclicBehaviour {
         // Receiving tasks
         public void action() {
-            MessageTemplate mt = MessageTemplate.MatchPerformative(ACLMessage.ACCEPT_PROPOSAL);
-            ACLMessage msg = myAgent.receive(mt);
+            ACLMessage msg = receive(MessageTemplate.MatchPerformative(ACLMessage.ACCEPT_PROPOSAL));
             if (msg != null) {
                 AID taskAID = msg.getSender();
                 myTasks.add(taskAID);
