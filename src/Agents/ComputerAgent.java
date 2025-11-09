@@ -1,6 +1,5 @@
 package Agents;
 
-
 import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
@@ -45,6 +44,7 @@ public class ComputerAgent extends Agent {
         // Add Behaviours
         addBehaviour(new RequestBehaviour());
         addBehaviour(new AcceptBehaviour());
+        addBehaviour(new TaskLeaveBehaviour());
 
         System.out.println("ComputerAgent " + computerName + " is ready.");
     }

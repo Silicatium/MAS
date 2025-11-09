@@ -31,6 +31,7 @@ public class TaskAgent extends Agent {
         // Add Behaviours
         addBehaviour(new SearchComputersBehaviour());
         addBehaviour(new ComputerConfirmationBehaviour());
+        addBehaviour(new ComputerLeaveBehaviour());
 
         System.out.println("TaskAgent " + getAID().getName() + " is ready.");
     }
@@ -84,14 +85,14 @@ public class TaskAgent extends Agent {
                     finishTime = time;
                     bestComputer = reply.getSender();
                 }
-            }
-            else if (myComputer == null && bestComputer != null && System.currentTimeMillis() - timer >= 60000) {
-                // Computer set
-                myComputer = bestComputer;
-                ACLMessage accept = new ACLMessage(ACLMessage.ACCEPT_PROPOSAL);
-                accept.addReceiver(myComputer);
-                accept.setContent(String.valueOf(complexity));
-                send(accept);
+                if (bestComputer != null && System.currentTimeMillis() - timer >= 5000) {
+                    // Computer set
+                    myComputer = bestComputer;
+                    ACLMessage accept = new ACLMessage(ACLMessage.ACCEPT_PROPOSAL);
+                    accept.addReceiver(myComputer);
+                    accept.setContent(String.valueOf(complexity));
+                    send(accept);
+                }
             }
             else block();
         }
