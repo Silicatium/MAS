@@ -4,16 +4,25 @@ package Agents;
 import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
-import jade.core.behaviours.OneShotBehaviour;
+import jade.domain.DFService;
+import jade.domain.FIPAAgentManagement.DFAgentDescription;
+import jade.domain.FIPAAgentManagement.ServiceDescription;
+import jade.domain.FIPAException;
 import jade.lang.acl.ACLMessage;
+import jade.lang.acl.MessageTemplate;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ComputerAgent extends Agent {
+    // Define variables
     private String computerName;
     private int capacity;
-    private AID[] myTasks;
+    private double busyTime = 0;
+    List<AID> myTasks = new ArrayList<>();
+
     protected void setup() {
+        // Filling variables
         computerName = getAID().getName();
-        System.out.println("ComputerAgent "+ computerName +" is ready.");
         Object[] args = getArguments();
         if (args != null && args.length > 0) {
             capacity = Integer.parseInt((String) args[0]);
@@ -21,25 +30,65 @@ public class ComputerAgent extends Agent {
         else {
             capacity = 1000;
         }
+
+        // Register in yellow pages
+        DFAgentDescription dfd = new DFAgentDescription();
+        dfd.setName(getAID());
+        ServiceDescription sd = new ServiceDescription();
+        sd.setType("task-executing");
+        sd.setName("JADE-Computer");
+        dfd.addServices(sd);
+        try {
+            DFService.register(this, dfd);
+        }
+        catch (FIPAException fe) {
+            fe.printStackTrace();
+        }
+
+        // Add Behaviours
         addBehaviour(new RequestBehaviour());
+        addBehaviour(new AcceptBehaviour());
+
+        System.out.println("ComputerAgent "+ computerName +" is ready.");
     }
+
     protected void takeDown() {
-        addBehaviour(new LeaveBehaviour());
+        // Task returns
+        ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
+        msg.setOntology("TerminateOntology");
+        msg.setContent(computerName);
+        for (AID myTask : myTasks) msg.addReceiver(myTask);
+        send(msg);
+        busyTime = 0;
         System.out.println("ComputerAgent "+getAID().getName()+" is terminated.");
     }
-    private class RequestBehaviour extends CyclicBehaviour {
-        public void action() {
-            ACLMessage cfp = new ACLMessage(ACLMessage.CFP);
 
+    private class RequestBehaviour extends CyclicBehaviour {
+        // Sending information to complete tasks
+        public void action() {
+            MessageTemplate mt = MessageTemplate.MatchPerformative(ACLMessage.CFP);
+            ACLMessage cfp = myAgent.receive(mt);
+            if (cfp != null) {
+                ACLMessage propose = cfp.createReply();
+                propose.setPerformative(ACLMessage.PROPOSE);
+                propose.setContent(String.valueOf((busyTime + (Double.parseDouble(cfp.getContent()) / capacity))));
+                send(propose);
+            }
+            else block();
         }
     }
-    private class LeaveBehaviour extends OneShotBehaviour {
+
+    private class AcceptBehaviour extends CyclicBehaviour {
+        // Receiving tasks
         public void action() {
-            ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
-            msg.setOntology("TerminateOntology");
-            msg.setContent(computerName);
-            for (AID myTask : myTasks) msg.addReceiver(myTask);
-            send(msg);
+            MessageTemplate mt = MessageTemplate.MatchPerformative(ACLMessage.ACCEPT_PROPOSAL);
+            ACLMessage msg = myAgent.receive(mt);
+            if (msg != null) {
+                AID taskAID = msg.getSender();
+                myTasks.add(taskAID);
+                busyTime += Double.parseDouble(msg.getContent()) / capacity;
+            }
+            else block();
         }
     }
 }
