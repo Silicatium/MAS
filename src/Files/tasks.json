@@ -1,0 +1,23 @@
+{
+  "Task1": {
+    "complexity": "10000"
+  },
+  "Task2": {
+    "complexity": "20000"
+  },
+  "Task3": {
+    "complexity": "40000"
+  },
+  "Task4": {
+    "complexity": "5000"
+  },
+  "Task5": {
+    "complexity": "15000"
+  },
+  "Task6": {
+    "complexity": "25000"
+  },
+  "Task7": {
+    "complexity": "8000"
+  }
+}

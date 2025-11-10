@@ -50,6 +50,14 @@ public class ComputerAgent extends Agent {
     }
 
     protected void takeDown() {
+        // Deregister in yellow pages
+        try {
+            DFService.deregister(this);
+        }
+        catch (FIPAException fe) {
+            fe.printStackTrace();
+        }
+
         // Task returns
         ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
         msg.setOntology("TerminateOntology");
@@ -82,7 +90,7 @@ public class ComputerAgent extends Agent {
                 AID taskAID = msg.getSender();
                 myTasks.add(taskAID);
                 busyTime += Double.parseDouble(msg.getContent()) / capacity;
-                System.out.println("ComputerAgent " + computerName + " took the task" + taskAID + ".");
+                System.out.println("ComputerAgent " + computerName + " took the task" + taskAID.getName() + ".");
             }
             else block();
         }
@@ -97,7 +105,7 @@ public class ComputerAgent extends Agent {
             if (msg != null) {
                 busyTime -= Double.parseDouble(msg.getContent());
                 myTasks.remove(msg.getSender());
-                System.out.println("TaskAgent " + msg.getSender() + " was removed from my list.");
+                System.out.println("TaskAgent " + msg.getSender().getName() + " was removed from my list.");
             }
             else block();
         }

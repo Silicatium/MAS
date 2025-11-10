@@ -71,12 +71,19 @@ public class TaskAgent extends Agent {
                 cfp.setContent(String.valueOf(complexity));
                 send(cfp);
             }
-            else block();
         }
     }
 
     private class ComputerConfirmationBehaviour extends CyclicBehaviour {
         public void action() {
+            // Computer set
+            if (myComputer == null && bestComputer != null && System.currentTimeMillis() - timer >= 3000) {
+                myComputer = bestComputer;
+                ACLMessage accept = new ACLMessage(ACLMessage.ACCEPT_PROPOSAL);
+                accept.addReceiver(myComputer);
+                accept.setContent(String.valueOf(complexity));
+                send(accept);
+            }
             // Receive computer answers
             ACLMessage reply = receive(MessageTemplate.MatchPerformative(ACLMessage.PROPOSE));
             if (reply != null && myComputer == null) {
@@ -85,16 +92,7 @@ public class TaskAgent extends Agent {
                     finishTime = time;
                     bestComputer = reply.getSender();
                 }
-                if (bestComputer != null && System.currentTimeMillis() - timer >= 5000) {
-                    // Computer set
-                    myComputer = bestComputer;
-                    ACLMessage accept = new ACLMessage(ACLMessage.ACCEPT_PROPOSAL);
-                    accept.addReceiver(myComputer);
-                    accept.setContent(String.valueOf(complexity));
-                    send(accept);
-                }
             }
-            else block();
         }
     }
 

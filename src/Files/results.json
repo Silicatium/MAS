@@ -1,0 +1,16 @@
+{
+  "Computer1": {
+    "capacity": "1000",
+    "tasks": [
+      {
+        "name": "task1",
+        "complexity": 6000
+      },
+      {
+        "name": "task2",
+        "complexity": 5000
+      }
+    ],
+    "total_time": 11
+  }
+}
