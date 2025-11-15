@@ -31,19 +31,11 @@ public class TaskAgent extends Agent {
         // Add Behaviours
         addBehaviour(new SearchComputersBehaviour());
         addBehaviour(new ComputerConfirmationBehaviour());
-        addBehaviour(new ComputerLeaveBehaviour());
 
         System.out.println("TaskAgent " + getAID().getName() + " is ready.");
     }
 
     protected void takeDown(){
-        // Task leave
-        ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
-        msg.setOntology("TerminateOntology");
-        msg.setContent(String.valueOf(complexity));
-        msg.addReceiver(myComputer);
-        send(msg);
-        myComputer = null;
         System.out.println("TaskAgent " + getAID().getName() + " is terminated.");
     }
 
@@ -93,23 +85,6 @@ public class TaskAgent extends Agent {
                     bestComputer = reply.getSender();
                 }
             }
-        }
-    }
-
-    private class ComputerLeaveBehaviour extends CyclicBehaviour {
-        // Computer is terminated
-        public void action() {
-            MessageTemplate mt = MessageTemplate.and(MessageTemplate.MatchPerformative(ACLMessage.INFORM),
-                    MessageTemplate.MatchOntology("TerminateOntology"));
-            ACLMessage msg = receive(mt);
-            if (msg != null) {
-                myComputer = null;
-                bestComputer = null;
-                finishTime = Double.MAX_VALUE;
-                timer = System.currentTimeMillis();
-                System.out.println("TaskAgent " + getAID().getName() + " is free.");
-            }
-            else block();
         }
     }
 }

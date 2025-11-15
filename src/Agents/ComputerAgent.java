@@ -44,7 +44,6 @@ public class ComputerAgent extends Agent {
         // Add Behaviours
         addBehaviour(new RequestBehaviour());
         addBehaviour(new AcceptBehaviour());
-        addBehaviour(new TaskLeaveBehaviour());
 
         System.out.println("ComputerAgent " + computerName + " is ready.");
     }
@@ -57,14 +56,6 @@ public class ComputerAgent extends Agent {
         catch (FIPAException fe) {
             fe.printStackTrace();
         }
-
-        // Task returns
-        ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
-        msg.setOntology("TerminateOntology");
-        msg.setContent("I am completing my process");
-        for (AID myTask : myTasks) msg.addReceiver(myTask);
-        send(msg);
-        busyTime = 0;
         System.out.println("ComputerAgent " + computerName + " is terminated.");
     }
 
@@ -91,21 +82,6 @@ public class ComputerAgent extends Agent {
                 myTasks.add(taskAID);
                 busyTime += Double.parseDouble(msg.getContent()) / capacity;
                 System.out.println("ComputerAgent " + computerName + " took the task" + taskAID.getName() + ".");
-            }
-            else block();
-        }
-    }
-
-    private class TaskLeaveBehaviour extends CyclicBehaviour {
-        // Task is terminated
-        public void action() {
-            MessageTemplate mt = MessageTemplate.and(MessageTemplate.MatchPerformative(ACLMessage.INFORM),
-                    MessageTemplate.MatchOntology("TerminateOntology"));
-            ACLMessage msg = receive(mt);
-            if (msg != null) {
-                busyTime -= Double.parseDouble(msg.getContent());
-                myTasks.remove(msg.getSender());
-                System.out.println("TaskAgent " + msg.getSender().getName() + " was removed from my list.");
             }
             else block();
         }
