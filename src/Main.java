@@ -5,8 +5,6 @@ import jade.wrapper.AgentContainer;
 import jade.wrapper.AgentController;
 import jade.wrapper.StaleProxyException;
 
-import java.io.FileReader;
-
 public class Main {
     static void main() {
         Runtime rt = Runtime.instance();
@@ -37,23 +35,20 @@ public class Main {
                     new Object[]{"20000"}
             );
 
-            Thread.sleep(5000);
             task1.start();
             AgentController task2 = mainContainer.createNewAgent(
                     "Task2",
                     "Agents.TaskAgent",
                     new Object[]{"20000"}
             );
-            Thread.sleep(5000);
             task2.start();
             AgentController task3 = mainContainer.createNewAgent(
                     "Task3",
                     "Agents.TaskAgent",
                     new Object[]{"20000"}
             );
-            Thread.sleep(5000);
             task3.start();
-        } catch (StaleProxyException | InterruptedException e) {
+        } catch (StaleProxyException e) {
             throw new RuntimeException(e);
         }
     }

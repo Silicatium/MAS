@@ -10,14 +10,18 @@ import jade.domain.FIPAException;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Queue;
 
 public class ComputerAgent extends Agent {
     // Define variables
     private String computerName;
     private int capacity; // op/sec
     private double busyTime = 0;
+    private boolean busy = false; // can communicate only with 1 task until it receive an answer
     List<AID> myTasks = new ArrayList<>();
+    Queue<ACLMessage> CFPs = new LinkedList<>();
 
     protected void setup() {
         // Filling variables
@@ -42,8 +46,10 @@ public class ComputerAgent extends Agent {
         }
 
         // Add Behaviours
-        addBehaviour(new RequestBehaviour());
+        addBehaviour(new RequestReceiveBehaviour());
+        addBehaviour(new ProposeSendBehaviour());
         addBehaviour(new AcceptBehaviour());
+        addBehaviour(new RejectBehaviour());
 
         System.out.println("ComputerAgent " + computerName + " is ready.");
     }
@@ -59,15 +65,25 @@ public class ComputerAgent extends Agent {
         System.out.println("ComputerAgent " + computerName + " is terminated.");
     }
 
-    private class RequestBehaviour extends CyclicBehaviour {
-        // Sending information to complete tasks
+    private class RequestReceiveBehaviour extends CyclicBehaviour {
+        // Receiving requests
         public void action() {
             ACLMessage cfp = receive(MessageTemplate.MatchPerformative(ACLMessage.CFP));
-            if (cfp != null) {
+            if (cfp != null && !CFPs.contains(cfp)) CFPs.add(cfp);
+            else block();
+        }
+    }
+
+    private class ProposeSendBehaviour extends CyclicBehaviour {
+        // Sending information to complete tasks
+        public  void action() {
+            if (!busy && !CFPs.isEmpty()) {
+                ACLMessage cfp = CFPs.poll();
                 ACLMessage propose = cfp.createReply();
                 propose.setPerformative(ACLMessage.PROPOSE);
                 propose.setContent(String.valueOf((busyTime + (Double.parseDouble(cfp.getContent()) / capacity))));
                 send(propose);
+                busy = true;
             }
             else block();
         }
@@ -80,9 +96,19 @@ public class ComputerAgent extends Agent {
             if (msg != null) {
                 AID taskAID = msg.getSender();
                 myTasks.add(taskAID);
-                busyTime += Double.parseDouble(msg.getContent()) / capacity;
+                busyTime = Double.parseDouble(msg.getContent());
                 System.out.println("ComputerAgent " + computerName + " took the task" + taskAID.getName() + ".");
+                busy = false;
             }
+            else block();
+        }
+    }
+
+    private class RejectBehaviour extends CyclicBehaviour {
+        // Receiving tasks
+        public void action() {
+            ACLMessage msg = receive(MessageTemplate.MatchPerformative(ACLMessage.REJECT_PROPOSAL));
+            if (msg != null) busy = false;
             else block();
         }
     }

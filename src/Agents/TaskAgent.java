@@ -10,14 +10,16 @@ import jade.domain.FIPAException;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
+
 public class TaskAgent extends Agent {
     // Define variables
     private int complexity;
-    private double finishTime;
-    private long timer; // timer for choosing computer;
     private AID myComputer;
-    private AID bestComputer;
     private AID[] computerAgents;
+    private Map<AID, Double> finishTimes = new HashMap<>();;
 
     protected void setup() {
         // Filling variables
@@ -25,11 +27,10 @@ public class TaskAgent extends Agent {
         if (args != null && args.length > 0)
             complexity = Integer.parseInt((String) args[0]);
         else complexity = 100;
-        timer = System.currentTimeMillis();
-        finishTime = Double.MAX_VALUE;
 
         // Add Behaviours
         addBehaviour(new SearchComputersBehaviour());
+        addBehaviour(new AnswersGetBehaviour());
         addBehaviour(new ComputerConfirmationBehaviour());
 
         System.out.println("TaskAgent " + getAID().getName() + " is ready.");
@@ -52,6 +53,9 @@ public class TaskAgent extends Agent {
                     computerAgents = new AID[result.length];
                     for (int i = 0; i < result.length; ++i)
                         computerAgents[i] = result[i].getName();
+                    for (AID computerAgent : computerAgents)
+                        if (!finishTimes.containsKey(computerAgent))
+                            finishTimes.put(computerAgent, null);
                 }
                 catch (FIPAException fe) {
                     fe.printStackTrace();
@@ -63,27 +67,46 @@ public class TaskAgent extends Agent {
                 cfp.setContent(String.valueOf(complexity));
                 send(cfp);
             }
+            else block();
+        }
+    }
+
+    private class AnswersGetBehaviour extends CyclicBehaviour {
+        public void action() {
+            // Getting execution times from computers
+            ACLMessage reply = receive(MessageTemplate.MatchPerformative(ACLMessage.PROPOSE));
+            if (reply != null && myComputer == null)
+                finishTimes.put(reply.getSender(), Double.parseDouble(reply.getContent()));
+            else block();
         }
     }
 
     private class ComputerConfirmationBehaviour extends CyclicBehaviour {
         public void action() {
-            // Computer set
-            if (myComputer == null && bestComputer != null && System.currentTimeMillis() - timer >= 3000) {
-                myComputer = bestComputer;
-                ACLMessage accept = new ACLMessage(ACLMessage.ACCEPT_PROPOSAL);
-                accept.addReceiver(myComputer);
-                accept.setContent(String.valueOf(complexity));
-                send(accept);
-            }
-            // Receive computer answers
-            ACLMessage reply = receive(MessageTemplate.MatchPerformative(ACLMessage.PROPOSE));
-            if (reply != null && myComputer == null) {
-                double time = Double.parseDouble(reply.getContent());
-                if (finishTime > time) {
-                    finishTime = time;
-                    bestComputer = reply.getSender();
+            if (!finishTimes.containsValue(null) && myComputer == null) {
+                // Computer set
+                double bestTime = Double.MAX_VALUE;
+                AID bestComputer = null;
+                for (Map.Entry<AID, Double> entry : finishTimes.entrySet()) {
+                    if (entry.getValue() < bestTime) {
+                        bestTime = entry.getValue();
+                        bestComputer = entry.getKey();
+                    }
                 }
+                myComputer = bestComputer;
+
+                // Answers to computers
+                ACLMessage accept = new ACLMessage(ACLMessage.ACCEPT_PROPOSAL);
+                ACLMessage reject = new ACLMessage(ACLMessage.REJECT_PROPOSAL);
+                for (AID computerAgent : computerAgents) {
+                    if (Objects.equals(computerAgent.getName(), myComputer.getName())) {
+                        accept.addReceiver(computerAgent);
+                        accept.setContent(String.valueOf(bestTime));
+                    }
+                    else reject.addReceiver(computerAgent);
+                }
+                send(accept);
+                send(reject);
             }
         }
     }
