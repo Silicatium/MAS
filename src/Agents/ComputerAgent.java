@@ -1,5 +1,8 @@
 package Agents;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
@@ -9,18 +12,18 @@ import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.domain.FIPAException;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Queue;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.*;
 
 public class ComputerAgent extends Agent {
     // Define variables
     private String computerName;
     private int capacity; // op/sec
-    private double busyTime = 0;
-    private boolean busy = false; // can communicate only with 1 task until it receive an answer
-    List<AID> myTasks = new ArrayList<>();
+    private double totalTime = 0;
+    private boolean isBusy = false; // can communicate only with 1 task until it receive an answer
+    List<Map.Entry<AID, Integer>> myTasks = new ArrayList<>();
     Queue<ACLMessage> CFPs = new LinkedList<>();
 
     protected void setup() {
@@ -62,6 +65,38 @@ public class ComputerAgent extends Agent {
         catch (FIPAException fe) {
             fe.printStackTrace();
         }
+
+        // Write info to file
+        ObjectMapper mapper = new ObjectMapper();
+        File resultsFile = new File("src/Files/results.json");
+        ObjectNode root;
+
+        try {
+            if (resultsFile.exists()) root = (ObjectNode) mapper.readTree(resultsFile);
+            else root = mapper.createObjectNode();
+
+            ObjectNode computerNode = mapper.createObjectNode();
+            computerNode.put("capacity", capacity); // значение по умолчанию
+            computerNode.putArray("tasks");
+            computerNode.put("total_time", totalTime);
+
+            ArrayNode tasksArray = (ArrayNode) computerNode.get("tasks");
+            for (Map.Entry<AID, Integer> entry : myTasks) {
+                ObjectNode taskNode = mapper.createObjectNode();
+                AID task = entry.getKey();
+                int complexity = entry.getValue();
+                taskNode.put("name", task.getName());
+                taskNode.put("complexity", complexity);
+                tasksArray.add(taskNode);
+            }
+
+            root.set(computerName, computerNode);
+            mapper.writerWithDefaultPrettyPrinter().writeValue(resultsFile, root);
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
         System.out.println("ComputerAgent " + computerName + " is terminated.");
     }
 
@@ -77,15 +112,14 @@ public class ComputerAgent extends Agent {
     private class ProposeSendBehaviour extends CyclicBehaviour {
         // Sending information to complete tasks
         public  void action() {
-            if (!busy && !CFPs.isEmpty()) {
+            if (!isBusy && !CFPs.isEmpty()) {
                 ACLMessage cfp = CFPs.poll();
                 ACLMessage propose = cfp.createReply();
                 propose.setPerformative(ACLMessage.PROPOSE);
-                propose.setContent(String.valueOf((busyTime + (Double.parseDouble(cfp.getContent()) / capacity))));
+                propose.setContent(String.valueOf((totalTime + (Double.parseDouble(cfp.getContent()) / capacity))));
                 send(propose);
-                busy = true;
+                isBusy = true;
             }
-            else block();
         }
     }
 
@@ -95,10 +129,10 @@ public class ComputerAgent extends Agent {
             ACLMessage msg = receive(MessageTemplate.MatchPerformative(ACLMessage.ACCEPT_PROPOSAL));
             if (msg != null) {
                 AID taskAID = msg.getSender();
-                myTasks.add(taskAID);
-                busyTime = Double.parseDouble(msg.getContent());
+                myTasks.add(Map.entry(taskAID, Integer.parseInt(msg.getContent())));
+                totalTime += Double.parseDouble(msg.getContent()) / capacity;
                 System.out.println("ComputerAgent " + computerName + " took the task" + taskAID.getName() + ".");
-                busy = false;
+                isBusy = false;
             }
             else block();
         }
@@ -108,7 +142,7 @@ public class ComputerAgent extends Agent {
         // Receiving tasks
         public void action() {
             ACLMessage msg = receive(MessageTemplate.MatchPerformative(ACLMessage.REJECT_PROPOSAL));
-            if (msg != null) busy = false;
+            if (msg != null) isBusy = false;
             else block();
         }
     }

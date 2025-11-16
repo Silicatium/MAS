@@ -1,9 +1,17 @@
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import jade.core.Profile;
 import jade.core.ProfileImpl;
 import jade.core.Runtime;
 import jade.wrapper.AgentContainer;
 import jade.wrapper.AgentController;
 import jade.wrapper.StaleProxyException;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.Iterator;
+import java.util.Map;
 
 public class Main {
     static void main() {
@@ -17,38 +25,41 @@ public class Main {
         AgentContainer mainContainer = rt.createMainContainer(p);
 
         try {
-            AgentController computer1 = mainContainer.createNewAgent(
-                    "Computer1",
-                    "Agents.ComputerAgent",
-                    new Object[]{"2000"}
-            );
-            computer1.start();
-            AgentController computer2 = mainContainer.createNewAgent(
-                    "Computer2",
-                    "Agents.ComputerAgent",
-                    new Object[]{"1000"}
-            );
-            computer2.start();
-            AgentController task1 = mainContainer.createNewAgent(
-                    "Task1",
-                    "Agents.TaskAgent",
-                    new Object[]{"20000"}
-            );
+            // Clear results
+            ObjectMapper mapper = new ObjectMapper();
+            ObjectNode emptyRoot = mapper.createObjectNode();
+            mapper.writerWithDefaultPrettyPrinter().writeValue(new File("src/Files/results.json"), emptyRoot);
 
-            task1.start();
-            AgentController task2 = mainContainer.createNewAgent(
-                    "Task2",
-                    "Agents.TaskAgent",
-                    new Object[]{"20000"}
-            );
-            task2.start();
-            AgentController task3 = mainContainer.createNewAgent(
-                    "Task3",
-                    "Agents.TaskAgent",
-                    new Object[]{"20000"}
-            );
-            task3.start();
-        } catch (StaleProxyException e) {
+            // Read files
+            JsonNode computers = new ObjectMapper().readTree(new File("src/Files/computers.json"));
+            JsonNode tasks = new ObjectMapper().readTree(new File("src/Files/tasks.json"));
+
+            Iterator<Map.Entry<String, JsonNode>> c = computers.fields();
+            Iterator<Map.Entry<String, JsonNode>> t = tasks.fields();
+
+            // Create computers
+            while (c.hasNext()) {
+                Map.Entry<String, JsonNode> computer = c.next();
+                AgentController agent = mainContainer.createNewAgent(
+                        computer.getKey(),
+                        "Agents.ComputerAgent",
+                        new Object[]{ computer.getValue().path("capacity").asText() }
+                );
+                agent.start();
+            }
+
+            // Create tasks
+            while (t.hasNext()) {
+                Map.Entry<String, JsonNode> task = t.next();
+                AgentController agent = mainContainer.createNewAgent(
+                        task.getKey(),
+                        "Agents.TaskAgent",
+                        new Object[]{ task.getValue().path("complexity").asText() }
+                );
+                agent.start();
+            }
+
+        } catch (StaleProxyException | IOException e) {
             throw new RuntimeException(e);
         }
     }

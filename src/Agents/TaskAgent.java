@@ -3,12 +3,14 @@ package Agents;
 import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
+import jade.core.behaviours.OneShotBehaviour;
 import jade.domain.DFService;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.domain.FIPAException;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
+import jade.util.leap.Iterator;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -40,34 +42,31 @@ public class TaskAgent extends Agent {
         System.out.println("TaskAgent " + getAID().getName() + " is terminated.");
     }
 
-    private  class SearchComputersBehaviour extends CyclicBehaviour {
+    private  class SearchComputersBehaviour extends OneShotBehaviour {
         public void action() {
-            if (myComputer == null) {
-                // Search in yellow pages
-                DFAgentDescription template = new DFAgentDescription();
-                ServiceDescription sd = new ServiceDescription();
-                sd.setType("task-executing");
-                template.addServices(sd);
-                try {
-                    DFAgentDescription[] result = DFService.search(myAgent, template);
-                    computerAgents = new AID[result.length];
-                    for (int i = 0; i < result.length; ++i)
-                        computerAgents[i] = result[i].getName();
-                    for (AID computerAgent : computerAgents)
-                        if (!finishTimes.containsKey(computerAgent))
-                            finishTimes.put(computerAgent, null);
-                }
-                catch (FIPAException fe) {
-                    fe.printStackTrace();
-                }
-
-                // Send task to computers
-                ACLMessage cfp = new ACLMessage(ACLMessage.CFP);
-                for (AID computer : computerAgents) cfp.addReceiver(computer);
-                cfp.setContent(String.valueOf(complexity));
-                send(cfp);
+            // Search in yellow pages
+            DFAgentDescription template = new DFAgentDescription();
+            ServiceDescription sd = new ServiceDescription();
+            sd.setType("task-executing");
+            template.addServices(sd);
+            try {
+                DFAgentDescription[] result = DFService.search(myAgent, template);
+                computerAgents = new AID[result.length];
+                for (int i = 0; i < result.length; ++i)
+                    computerAgents[i] = result[i].getName();
+                for (AID computerAgent : computerAgents)
+                    if (!finishTimes.containsKey(computerAgent))
+                        finishTimes.put(computerAgent, null);
             }
-            else block();
+            catch (FIPAException fe) {
+                fe.printStackTrace();
+            }
+
+            // Send task to computers
+            ACLMessage cfp = new ACLMessage(ACLMessage.CFP);
+            for (AID computer : computerAgents) cfp.addReceiver(computer);
+            cfp.setContent(String.valueOf(complexity));
+            send(cfp);
         }
     }
 
@@ -101,7 +100,7 @@ public class TaskAgent extends Agent {
                 for (AID computerAgent : computerAgents) {
                     if (Objects.equals(computerAgent.getName(), myComputer.getName())) {
                         accept.addReceiver(computerAgent);
-                        accept.setContent(String.valueOf(bestTime));
+                        accept.setContent(String.valueOf(complexity));
                     }
                     else reject.addReceiver(computerAgent);
                 }

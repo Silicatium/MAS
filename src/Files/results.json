@@ -1,16 +1,59 @@
 {
-  "Computer1": {
-    "capacity": "1000",
-    "tasks": [
-      {
-        "name": "task1",
-        "complexity": 6000
-      },
-      {
-        "name": "task2",
-        "complexity": 5000
-      }
-    ],
-    "total_time": 11
+  "Computer2@192.168.1.192:1099/JADE" : {
+    "capacity" : 2000,
+    "tasks" : [ {
+      "name" : "Task6@192.168.1.192:1099/JADE",
+      "complexity" : 25000
+    }, {
+      "name" : "Task10@192.168.1.192:1099/JADE",
+      "complexity" : 40000
+    } ],
+    "total_time" : 32.5
+  },
+  "Computer3@192.168.1.192:1099/JADE" : {
+    "capacity" : 4000,
+    "tasks" : [ {
+      "name" : "Task4@192.168.1.192:1099/JADE",
+      "complexity" : 5000
+    }, {
+      "name" : "Task1@192.168.1.192:1099/JADE",
+      "complexity" : 10000
+    }, {
+      "name" : "Task5@192.168.1.192:1099/JADE",
+      "complexity" : 15000
+    }, {
+      "name" : "Task2@192.168.1.192:1099/JADE",
+      "complexity" : 20000
+    }, {
+      "name" : "Task8@192.168.1.192:1099/JADE",
+      "complexity" : 10000
+    }, {
+      "name" : "Task3@192.168.1.192:1099/JADE",
+      "complexity" : 40000
+    }, {
+      "name" : "Task9@192.168.1.192:1099/JADE",
+      "complexity" : 20000
+    }, {
+      "name" : "Task14@192.168.1.192:1099/JADE",
+      "complexity" : 8000
+    }, {
+      "name" : "Task13@192.168.1.192:1099/JADE",
+      "complexity" : 25000
+    } ],
+    "total_time" : 38.25
+  },
+  "Computer1@192.168.1.192:1099/JADE" : {
+    "capacity" : 1000,
+    "tasks" : [ {
+      "name" : "Task11@192.168.1.192:1099/JADE",
+      "complexity" : 5000
+    }, {
+      "name" : "Task7@192.168.1.192:1099/JADE",
+      "complexity" : 8000
+    }, {
+      "name" : "Task12@192.168.1.192:1099/JADE",
+      "complexity" : 15000
+    } ],
+    "total_time" : 28.0
   }
 }
