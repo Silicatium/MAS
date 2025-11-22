@@ -10,11 +10,12 @@ import jade.wrapper.StaleProxyException;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.UnknownHostException;
 import java.util.Iterator;
 import java.util.Map;
 
 public class Main {
-    static void main() {
+    static void main(String[] args) throws UnknownHostException {
         Runtime rt = Runtime.instance();
 
         // Configuration
@@ -30,12 +31,9 @@ public class Main {
             ObjectNode emptyRoot = mapper.createObjectNode();
             mapper.writerWithDefaultPrettyPrinter().writeValue(new File("src/Files/results.json"), emptyRoot);
 
-            // Read files
+            // Read file
             JsonNode computers = new ObjectMapper().readTree(new File("src/Files/computers.json"));
-            JsonNode tasks = new ObjectMapper().readTree(new File("src/Files/tasks.json"));
-
             Iterator<Map.Entry<String, JsonNode>> c = computers.fields();
-            Iterator<Map.Entry<String, JsonNode>> t = tasks.fields();
 
             // Create computers
             while (c.hasNext()) {
@@ -48,6 +46,12 @@ public class Main {
                 agent.start();
             }
 
+            Thread.sleep(5000);
+
+            // Read file
+            JsonNode tasks = new ObjectMapper().readTree(new File("src/Files/tasks.json"));
+            Iterator<Map.Entry<String, JsonNode>> t = tasks.fields();
+
             // Create tasks
             while (t.hasNext()) {
                 Map.Entry<String, JsonNode> task = t.next();
@@ -59,7 +63,7 @@ public class Main {
                 agent.start();
             }
 
-        } catch (StaleProxyException | IOException e) {
+        } catch (StaleProxyException | IOException | InterruptedException e) {
             throw new RuntimeException(e);
         }
     }

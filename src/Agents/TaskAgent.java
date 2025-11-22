@@ -10,7 +10,6 @@ import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.domain.FIPAException;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
-import jade.util.leap.Iterator;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -20,8 +19,7 @@ public class TaskAgent extends Agent {
     // Define variables
     private int complexity;
     private AID myComputer;
-    private AID[] computerAgents;
-    private Map<AID, Double> finishTimes = new HashMap<>();;
+    private Map<AID, Double> computers = new HashMap<>();
 
     protected void setup() {
         // Filling variables
@@ -30,15 +28,38 @@ public class TaskAgent extends Agent {
             complexity = Integer.parseInt((String) args[0]);
         else complexity = 100;
 
+        // Register in yellow pages
+        DFAgentDescription dfd = new DFAgentDescription();
+        dfd.setName(getAID());
+        ServiceDescription sd = new ServiceDescription();
+        sd.setType("tasks");
+        sd.setName("JADE-Task");
+        dfd.addServices(sd);
+        try {
+            DFService.register(this, dfd);
+        }
+        catch (FIPAException fe) {
+            fe.printStackTrace();
+        }
+
         // Add Behaviours
         addBehaviour(new SearchComputersBehaviour());
         addBehaviour(new AnswersGetBehaviour());
         addBehaviour(new ComputerConfirmationBehaviour());
+        addBehaviour(new SortBehaviour());
 
         System.out.println("TaskAgent " + getAID().getName() + " is ready.");
     }
 
     protected void takeDown(){
+        // Deregister in yellow pages
+        try {
+            DFService.deregister(this);
+        }
+        catch (FIPAException fe) {
+            fe.printStackTrace();
+        }
+
         System.out.println("TaskAgent " + getAID().getName() + " is terminated.");
     }
 
@@ -51,12 +72,7 @@ public class TaskAgent extends Agent {
             template.addServices(sd);
             try {
                 DFAgentDescription[] result = DFService.search(myAgent, template);
-                computerAgents = new AID[result.length];
-                for (int i = 0; i < result.length; ++i)
-                    computerAgents[i] = result[i].getName();
-                for (AID computerAgent : computerAgents)
-                    if (!finishTimes.containsKey(computerAgent))
-                        finishTimes.put(computerAgent, null);
+                for (DFAgentDescription res : result) computers.put(res.getName(), null);
             }
             catch (FIPAException fe) {
                 fe.printStackTrace();
@@ -64,7 +80,7 @@ public class TaskAgent extends Agent {
 
             // Send task to computers
             ACLMessage cfp = new ACLMessage(ACLMessage.CFP);
-            for (AID computer : computerAgents) cfp.addReceiver(computer);
+            for (AID computer: computers.keySet()) cfp.addReceiver(computer);
             cfp.setContent(String.valueOf(complexity));
             send(cfp);
         }
@@ -75,18 +91,18 @@ public class TaskAgent extends Agent {
             // Getting execution times from computers
             ACLMessage reply = receive(MessageTemplate.MatchPerformative(ACLMessage.PROPOSE));
             if (reply != null && myComputer == null)
-                finishTimes.put(reply.getSender(), Double.parseDouble(reply.getContent()));
+                computers.put(reply.getSender(), Double.parseDouble(reply.getContent()));
             else block();
         }
     }
 
     private class ComputerConfirmationBehaviour extends CyclicBehaviour {
         public void action() {
-            if (!finishTimes.containsValue(null) && myComputer == null) {
+            if (!computers.containsValue(null) && myComputer == null) {
                 // Computer set
                 double bestTime = Double.MAX_VALUE;
                 AID bestComputer = null;
-                for (Map.Entry<AID, Double> entry : finishTimes.entrySet()) {
+                for (Map.Entry<AID, Double> entry : computers.entrySet()) {
                     if (entry.getValue() < bestTime) {
                         bestTime = entry.getValue();
                         bestComputer = entry.getKey();
@@ -97,16 +113,28 @@ public class TaskAgent extends Agent {
                 // Answers to computers
                 ACLMessage accept = new ACLMessage(ACLMessage.ACCEPT_PROPOSAL);
                 ACLMessage reject = new ACLMessage(ACLMessage.REJECT_PROPOSAL);
-                for (AID computerAgent : computerAgents) {
-                    if (Objects.equals(computerAgent.getName(), myComputer.getName())) {
-                        accept.addReceiver(computerAgent);
+                for (AID computer : computers.keySet()) {
+                    if (Objects.equals(computer.getName(), myComputer.getName())) {
+                        accept.addReceiver(computer);
                         accept.setContent(String.valueOf(complexity));
                     }
-                    else reject.addReceiver(computerAgent);
+                    else reject.addReceiver(computer);
                 }
                 send(accept);
                 send(reject);
             }
+        }
+    }
+
+    private class SortBehaviour extends CyclicBehaviour {
+        public void action() {
+            // Getting info of remove task from computer
+            ACLMessage reply = receive(MessageTemplate.MatchPerformative(ACLMessage.INFORM));
+            if (reply != null) {
+                myComputer = null;
+                addBehaviour(new SearchComputersBehaviour());
+            }
+            else block();
         }
     }
 }
