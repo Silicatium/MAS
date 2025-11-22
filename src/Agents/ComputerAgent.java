@@ -208,33 +208,34 @@ public class ComputerAgent extends Agent {
             if (msg != null) {
                 computers.put(msg.getSender(), msg.getContent());
                 if (!computers.containsValue(null)) {
-                    // Вetermining the busiest and freest computer
-                    Map.Entry<AID, String> maxLoaded = null;
-                    Map.Entry<AID, String> minLoaded = null;
-                    for (Map.Entry<AID, String> entry : computers.entrySet()) {
-                        String[] infoEntry = entry.getValue().split(" ");
-                        if (maxLoaded == null || minLoaded == null) {
-                            maxLoaded = entry;
-                            minLoaded = entry;
-                        }
-                        String[] infoMax = maxLoaded.getValue().split(" ");
-                        String[] infoMin = minLoaded.getValue().split(" ");
-                        if (Double.parseDouble(infoMax[0]) < Double.parseDouble(infoEntry[0])) maxLoaded = entry;
-                        if (Double.parseDouble(infoMin[0]) > Double.parseDouble(infoEntry[0])) minLoaded = entry;
-                        if ((Double.parseDouble(infoMin[0]) == Double.parseDouble(infoEntry[0])) &&
-                                (Integer.parseInt(infoMin[1]) < Integer.parseInt(infoEntry[1]))) minLoaded = entry;
+                    // Determining the easiest task
+                    Map.Entry<AID, Integer> easyTask = null;
+                    for (Map.Entry<AID, Integer> task : myTasks) {
+                        if (easyTask == null) easyTask = task;
+                        if (easyTask.getValue() > task.getValue()) easyTask = task;
                     }
-                    if (maxLoaded != null) {
-                        String[] infoMax = maxLoaded.getValue().split(" ");
-                        if (Double.parseDouble(infoMax[0]) == totalTime) {
-                            // That computer the busiest computer
-                            String[] infoMin = minLoaded.getValue().split(" ");
-                            Map.Entry<AID, Integer> easyTask = null;
-                            for (Map.Entry<AID, Integer> task : myTasks) {
-                                if (easyTask == null) easyTask = task;
-                                if (easyTask.getValue() > task.getValue()) easyTask = task;
+                    if (easyTask != null) {
+                        // Determining the busiest and freest computer
+                        Map.Entry<AID, String> maxLoaded = null;
+                        Map.Entry<AID, String> minLoaded = null;
+                        for (Map.Entry<AID, String> entry : computers.entrySet()) {
+                            String[] infoEntry = entry.getValue().split(" ");
+                            if (maxLoaded == null || minLoaded == null) {
+                                maxLoaded = entry;
+                                minLoaded = entry;
                             }
-                            if (easyTask != null) {
+                            String[] infoMax = maxLoaded.getValue().split(" ");
+                            String[] infoMin = minLoaded.getValue().split(" ");
+                            if (Double.parseDouble(infoMax[0]) < Double.parseDouble(infoEntry[0])) maxLoaded = entry;
+                            if ((Double.parseDouble(infoMin[0]) + (double) easyTask.getValue() / Integer.parseInt(infoMin[1])) >
+                                    (Double.parseDouble(infoEntry[0]) + (double) easyTask.getValue() / Integer.parseInt(infoEntry[1])))
+                                minLoaded = entry;
+                        }
+                        if (maxLoaded != null) {
+                            String[] infoMax = maxLoaded.getValue().split(" ");
+                            // That computer the busiest computer
+                            if (Double.parseDouble(infoMax[0]) == totalTime) {
+                                String[] infoMin = minLoaded.getValue().split(" ");
                                 // Remove task from list
                                 if (totalTime > (Double.parseDouble(infoMin[0]) + ((double) easyTask.getValue() / Integer.parseInt(infoMin[1])))) {
                                     myTasks.remove(easyTask);
