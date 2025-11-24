@@ -7,6 +7,7 @@ import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
 import jade.core.behaviours.OneShotBehaviour;
+import jade.core.behaviours.TickerBehaviour;
 import jade.domain.DFService;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
@@ -56,7 +57,9 @@ public class ComputerAgent extends Agent {
         addBehaviour(new ProposeSendBehaviour());
         addBehaviour(new AcceptBehaviour());
         addBehaviour(new RejectBehaviour());
-        addBehaviour(new TaskSearchBehaviour());
+        addBehaviour(new TaskSearchBehaviour(this, 1000));
+        addBehaviour(new SortBehaviour());
+        addBehaviour(new AnswerGetBehaviour());
 
         System.out.println("ComputerAgent " + computerName + " is ready.");
     }
@@ -108,7 +111,10 @@ public class ComputerAgent extends Agent {
         public void action() {
             // Receiving requests
             ACLMessage cfp = receive(MessageTemplate.MatchPerformative(ACLMessage.CFP));
-            if (cfp != null) CFPs.add(cfp);
+            if (cfp != null)  {
+                CFPs.add(cfp);
+                tasks.put(cfp.getSender(), false);
+            }
             else block();
         }
     }
@@ -155,8 +161,11 @@ public class ComputerAgent extends Agent {
         }
     }
 
-    private class TaskSearchBehaviour extends CyclicBehaviour {
-        public void action() {
+    private class TaskSearchBehaviour extends TickerBehaviour {
+        public TaskSearchBehaviour(Agent a, long period) {
+            super(a, period);
+        }
+        public void onTick() {
             // Search tasks in yellow pages
             DFAgentDescription template = new DFAgentDescription();
             ServiceDescription sd = new ServiceDescription();
@@ -166,14 +175,31 @@ public class ComputerAgent extends Agent {
                 DFAgentDescription[] result = DFService.search(myAgent, template);
                 for (DFAgentDescription res : result)
                     if (!tasks.containsKey(res.getName())) tasks.put(res.getName(), false);
-                if (!tasks.containsValue(false) && !tasks.isEmpty()) {
-                    addBehaviour(new ComputerSearchBehaviour());
-                    addBehaviour(new SortBehaviour());
-                }
+
+                // Ask question from tasks
+                ACLMessage question = new ACLMessage(ACLMessage.INFORM);
+                question.setOntology("Question");
+                for (AID task : tasks.keySet()) question.addReceiver(task);
+                send(question);
+
+                if (!tasks.containsValue(false) && !tasks.isEmpty()) addBehaviour(new ComputerSearchBehaviour());
             }
             catch (FIPAException fe) {
                 fe.printStackTrace();
             }
+        }
+    }
+
+    private class AnswerGetBehaviour extends CyclicBehaviour {
+        public void action() {
+            // Get answer to question
+            ACLMessage answer = receive(MessageTemplate.and(
+                    MessageTemplate.MatchOntology("Answer"),
+                    MessageTemplate.MatchPerformative(ACLMessage.INFORM)));
+            if (answer != null) {
+                tasks.put(answer.getSender(), Boolean.valueOf(answer.getContent()));
+            }
+            else block();
         }
     }
 
@@ -191,8 +217,10 @@ public class ComputerAgent extends Agent {
 
                 // Send info to computers
                 ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
+                msg.setOntology("Computer-info");
                 msg.setContent(String.valueOf(totalTime) + " " + String.valueOf(capacity));
-                for (AID computer: computers.keySet()) msg.addReceiver(computer);
+                for (AID computer: computers.keySet())
+                    if (!Objects.equals(computer.getName(), computerName)) msg.addReceiver(computer);
                 send(msg);
             }
             catch (FIPAException fe) {
@@ -204,9 +232,12 @@ public class ComputerAgent extends Agent {
     private class SortBehaviour extends CyclicBehaviour {
         public void action() {
             // Receive info from computers
-            ACLMessage msg = receive(MessageTemplate.MatchPerformative(ACLMessage.INFORM));
+            ACLMessage msg = receive(MessageTemplate.and(
+                    MessageTemplate.MatchOntology("Computer-info"),
+                    MessageTemplate.MatchPerformative(ACLMessage.INFORM)));
             if (msg != null) {
                 computers.put(msg.getSender(), msg.getContent());
+                computers.put(getAID(), String.valueOf(totalTime) + " " + String.valueOf(capacity));
                 if (!computers.containsValue(null)) {
                     // Determining the easiest task
                     Map.Entry<AID, Integer> easyTask = null;
@@ -226,23 +257,25 @@ public class ComputerAgent extends Agent {
                             }
                             String[] infoMax = maxLoaded.getValue().split(" ");
                             String[] infoMin = minLoaded.getValue().split(" ");
-                            if (Double.parseDouble(infoMax[0]) < Double.parseDouble(infoEntry[0])) maxLoaded = entry;
+                            if (Double.parseDouble(infoMax[0]) < Double.parseDouble(infoEntry[0]))
+                                maxLoaded = entry;
                             if ((Double.parseDouble(infoMin[0]) + (double) easyTask.getValue() / Integer.parseInt(infoMin[1])) >
                                     (Double.parseDouble(infoEntry[0]) + (double) easyTask.getValue() / Integer.parseInt(infoEntry[1])))
                                 minLoaded = entry;
                         }
                         if (maxLoaded != null) {
                             String[] infoMax = maxLoaded.getValue().split(" ");
+                            String[] infoMin = minLoaded.getValue().split(" ");
                             // That computer the busiest computer
                             if (Double.parseDouble(infoMax[0]) == totalTime) {
-                                String[] infoMin = minLoaded.getValue().split(" ");
-                                // Remove task from list
                                 if (totalTime > (Double.parseDouble(infoMin[0]) + ((double) easyTask.getValue() / Integer.parseInt(infoMin[1])))) {
+                                    // Remove task from list
                                     myTasks.remove(easyTask);
                                     totalTime -= (double) easyTask.getValue() / capacity;
                                     tasks.put(easyTask.getKey(), false);
                                     System.out.println("ComputerAgent " + computerName + " remove " + easyTask.getKey().getName() + ".");
                                     ACLMessage info = new ACLMessage(ACLMessage.INFORM);
+                                    info.setOntology("Remove");
                                     info.addReceiver(easyTask.getKey());
                                     send(info);
                                 }

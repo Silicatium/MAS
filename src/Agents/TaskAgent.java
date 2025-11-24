@@ -46,7 +46,8 @@ public class TaskAgent extends Agent {
         addBehaviour(new SearchComputersBehaviour());
         addBehaviour(new AnswersGetBehaviour());
         addBehaviour(new ComputerConfirmationBehaviour());
-        addBehaviour(new SortBehaviour());
+        addBehaviour(new RemoveBehaviour());
+        addBehaviour(new AnswerBehaviour());
 
         System.out.println("TaskAgent " + getAID().getName() + " is ready.");
     }
@@ -126,13 +127,33 @@ public class TaskAgent extends Agent {
         }
     }
 
-    private class SortBehaviour extends CyclicBehaviour {
+    private class RemoveBehaviour extends CyclicBehaviour {
         public void action() {
             // Getting info of remove task from computer
-            ACLMessage reply = receive(MessageTemplate.MatchPerformative(ACLMessage.INFORM));
-            if (reply != null) {
+            ACLMessage info = receive(MessageTemplate.and(
+                    MessageTemplate.MatchOntology("Remove"),
+                    MessageTemplate.MatchPerformative(ACLMessage.INFORM)));
+            if (info != null) {
                 myComputer = null;
                 addBehaviour(new SearchComputersBehaviour());
+            }
+            else block();
+        }
+    }
+
+    private class AnswerBehaviour extends CyclicBehaviour {
+        public void action() {
+            // Answer to question
+            ACLMessage question = receive(MessageTemplate.and(
+                    MessageTemplate.MatchOntology("Question"),
+                    MessageTemplate.MatchPerformative(ACLMessage.INFORM)));
+            if (question != null) {
+                ACLMessage answer = new ACLMessage(ACLMessage.INFORM);
+                answer.setOntology("Answer");
+                boolean ans = myComputer != null;
+                answer.setContent(String.valueOf(ans));
+                answer.addReceiver(question.getSender());
+                send(answer);
             }
             else block();
         }
